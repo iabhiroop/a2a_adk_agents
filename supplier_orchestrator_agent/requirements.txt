@@ -1,0 +1,12 @@
+google-genai[adk]
+google-cloud-aiplatform
+httpx>=0.24.0
+python-dotenv
+pydantic
+asyncio
+aiofiles
+a2a-client
+pyyaml
+uvicorn
+click
+logging

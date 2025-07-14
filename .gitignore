@@ -1,0 +1,5 @@
+__pycache__/
+venv/
+.env
+*.ps1
+check_*.py
