@@ -3,3 +3,4 @@ venv/
 .env
 *.ps1
 check_*.py
+trigger_orchestrators.py

@@ -4,6 +4,7 @@ python-dotenv
 uvicorn
 click
 logging
+gradio>=4.0.0
 # A2A dependencies - these should be available from your ADK installation
 # a2a
 # google.adk
