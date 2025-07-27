@@ -118,7 +118,7 @@ All agents access specialized tools through the MCP server:
 
 ### Prerequisites
 - Python 3.8 or higher
-- Custom MCP Server running on port 8080
+- Custom MCP Server running on port 8099
 - Gmail accounts for email integration
 - Google API key for Gemini integration
 
