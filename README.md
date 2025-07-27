@@ -1,6 +1,6 @@
 # Purchase Order Agent A2A ADK Framework
 
-An Agent-to-Agent (A2A) ADK (Agent Development Kit) based automation system for supply chain ordering and documentation processes using a custom MCP (Model Context Protocol) server. This implementation transforms traditionally manual supply chain processes through intelligent multi-agent coordination.
+An Agent-to-Agent (A2A) ADK (Agent Development Kit) based automation system for supply chain ordering and documentation processes using a custom [MCP (Model Context Protocol) server](https://github.com/iabhiroop/MCP_PurchaseOrderFlow). This implementation transforms traditionally manual supply chain processes through intelligent multi-agent coordination.
 
 ## 🚀 Overview
 
