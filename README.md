@@ -20,6 +20,15 @@ This repository demonstrates how A2A ADK agents can revolutionize supply chain a
 - Modular ADK design enables seamless scaling and agent specialization
 - Event-driven workflows through HTTP-based agent communication
 
+## 📹 Video Demonstration
+
+Watch the complete buyer workflow automation in action:
+
+
+https://github.com/user-attachments/assets/0d190085-7a68-407b-aab4-1c82e7ff9870
+
+
+
 ## 🏗️ A2A ADK Architecture
 
 ### ADK Agent Structure
