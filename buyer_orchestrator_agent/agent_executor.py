@@ -1,11 +1,9 @@
-from collections.abc import AsyncGenerator
 import logging
 
-from google.adk import Runner
-from google.adk.events import Event
-from google.genai import types
+from typing import TYPE_CHECKING
 
-from a2a.server.agent_execution import AgentExecutor, RequestContext
+from a2a.server.agent_execution import AgentExecutor
+from a2a.server.agent_execution.context import RequestContext
 from a2a.server.events.event_queue import EventQueue
 from a2a.server.tasks import TaskUpdater
 from a2a.types import (
@@ -19,25 +17,29 @@ from a2a.types import (
     UnsupportedOperationError,
 )
 from a2a.utils.errors import ServerError
+from google.adk import Runner
+from google.genai import types
+
+
+if TYPE_CHECKING:
+    from google.adk.sessions.session import Session
 
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+# Constants
+DEFAULT_USER_ID = 'self'
 
 
 class ADKAgentExecutor(AgentExecutor):
-    """An AgentExecutor that runs an ADK buyer orchestrator agent."""
+    """An AgentExecutor that runs an ADK-based Agent for inventory management."""
 
     def __init__(self, runner: Runner, card: AgentCard):
         self.runner = runner
         self._card = card
-        self._running_sessions = {}
-
-    def _run_agent(
-        self, session_id, new_message: types.Content
-    ) -> AsyncGenerator[Event, None]:
-        return self.runner.run_async(
-            session_id=session_id, user_id="self", new_message=new_message
-        )
+        # Track active sessions for potential cancellation
+        self._active_sessions: set[str] = set()
 
     async def _process_request(
         self,
@@ -45,97 +47,176 @@ class ADKAgentExecutor(AgentExecutor):
         session_id: str,
         task_updater: TaskUpdater,
     ) -> None:
-        session = await self._upsert_session(
-            session_id,
-        )
+        session_obj = await self._upsert_session(session_id)
+        # Update session_id with the ID from the resolved session object.
+        # (it may be the same as the one passed in if it already exists)
+        session_id = session_obj.id
 
-        logger.info(f"Running buyer orchestrator agent for session {session_id}")
+        # Track this session as active
+        self._active_sessions.add(session_id)
 
-        async for event in self._run_agent(session_id, new_message):
-            if event.agent_turn_started:
-                await task_updater.update_task(
-                    state=TaskState.IN_PROGRESS,
-                )
-            elif event.agent_content_delta:
-                await task_updater.add_content_delta(event.agent_content_delta)
-            elif event.agent_turn_finished:
-                await task_updater.update_task(
-                    state=TaskState.COMPLETE,
-                )
-            elif event.error:
-                logger.error(f"Error in buyer orchestrator agent: {event.error}")
-                await task_updater.update_task(
-                    state=TaskState.FAILED,
-                    result="Agent execution failed",
-                )
-
-    async def _upsert_session(self, session_id: str):
-        """Create or retrieve a session for the buyer orchestrator agent."""
-        if session_id not in self._running_sessions:
-            self._running_sessions[session_id] = await self.runner.create_session(
-                session_id=session_id, user_id="self"
-            )
-        return self._running_sessions[session_id]
-
-    async def execute_request(
-        self, request_context: RequestContext, task_updater: TaskUpdater
-    ) -> None:
-        """Execute a request for the buyer orchestrator agent."""
         try:
-            parts = []
-            for part in request_context.request.content.parts:
-                if isinstance(part, TextPart):
-                    parts.append(types.Part.from_text(part.text))
-                elif isinstance(part, FilePart):
-                    if isinstance(part.file, FileWithBytes):
-                        # Handle file with bytes
-                        parts.append(
-                            types.Part.from_bytes(
-                                part.file.contents, mime_type=part.file.mime_type
-                            )
-                        )
-                    elif isinstance(part.file, FileWithUri):
-                        # Handle file with URI
-                        parts.append(
-                            types.Part.from_uri(
-                                part.file.uri, mime_type=part.file.mime_type
-                            )
-                        )
-                    else:
-                        logger.warning(f"Unsupported file type: {type(part.file)}")
+            async for event in self.runner.run_async(
+                session_id=session_id,
+                user_id=DEFAULT_USER_ID,
+                new_message=new_message,
+            ):
+                if event.is_final_response():
+                    parts = [
+                        convert_genai_part_to_a2a(part)
+                        for part in event.content.parts
+                        if (part.text or part.file_data or part.inline_data)
+                    ]
+                    logger.debug('Yielding final response: %s', parts)
+                    await task_updater.add_artifact(parts)
+                    await task_updater.update_status(
+                        TaskState.completed, final=True
+                    )
+                    break
+                if not event.get_function_calls():
+                    logger.debug('Yielding update response')
+                    await task_updater.update_status(
+                        TaskState.working,
+                        message=task_updater.new_agent_message(
+                            [
+                                convert_genai_part_to_a2a(part)
+                                for part in event.content.parts
+                                if (
+                                    part.text
+                                    or part.file_data
+                                    or part.inline_data
+                                )
+                            ],
+                        ),
+                    )
                 else:
-                    logger.warning(f"Unsupported part type: {type(part)}")
+                    logger.debug('Skipping event')
+        finally:
+            # Remove from active sessions when done
+            self._active_sessions.discard(session_id)
 
-            new_message = types.Content(parts=parts)
-            await self._process_request(
-                new_message, request_context.task.session_id, task_updater
+    async def execute(
+        self,
+        context: RequestContext,
+        event_queue: EventQueue,
+    ):
+        # Run the agent until either complete or the task is suspended.
+        updater = TaskUpdater(event_queue, context.task_id, context.context_id)
+        # Immediately notify that the task is submitted.
+        if not context.current_task:
+            await updater.update_status(TaskState.submitted)
+        await updater.update_status(TaskState.working)
+        await self._process_request(
+            types.UserContent(
+                parts=[
+                    convert_a2a_part_to_genai(part)
+                    for part in context.message.parts
+                ],
+            ),
+            context.context_id,
+            updater,
+        )
+        logger.debug('[buyer_orchestrator] execute exiting')
+
+    async def cancel(self, context: RequestContext, event_queue: EventQueue):
+        """Cancel the execution for the given context.
+
+        Currently logs the cancellation attempt as the underlying ADK runner
+        doesn't support direct cancellation of ongoing tasks.
+        """
+        session_id = context.context_id
+        if session_id in self._active_sessions:
+            logger.info(
+                f'Cancellation requested for active buyer orchestrator session: {session_id}'
+            )
+            # TODO: Implement proper cancellation when ADK supports it
+            self._active_sessions.discard(session_id)
+        else:
+            logger.debug(
+                f'Cancellation requested for inactive buyer orchestrator session: {session_id}'
             )
 
-        except Exception as e:
-            logger.error(f"Error executing buyer orchestrator agent request: {e}")
-            await task_updater.update_task(
-                state=TaskState.FAILED,
-                result=f"Failed to execute request: {str(e)}",
+        raise ServerError(error=UnsupportedOperationError())
+
+    async def _upsert_session(self, session_id: str) -> 'Session':
+        """Retrieves a session if it exists, otherwise creates a new one.
+
+        Ensures that async session service methods are properly awaited.
+        """
+        session = await self.runner.session_service.get_session(
+            app_name=self.runner.app_name,
+            user_id=DEFAULT_USER_ID,
+            session_id=session_id,
+        )
+        if session is None:
+            session = await self.runner.session_service.create_session(
+                app_name=self.runner.app_name,
+                user_id=DEFAULT_USER_ID,
+                session_id=session_id,
             )
+        return session
 
-    def get_card(self) -> AgentCard:
-        """Return the agent card for the buyer orchestrator agent."""
-        return self._card
 
-    async def check_files_access(self, file_uris: list[str]) -> dict[str, bool]:
-        """Check if the agent can access the given files."""
-        # For now, assume all files are accessible
-        return {uri: True for uri in file_uris}
+def convert_a2a_part_to_genai(part: Part) -> types.Part:
+    """Convert a single A2A Part type into a Google Gen AI Part type.
 
-    async def cancel_request(self, session_id: str, task_id: str) -> None:
-        """Cancel a request for the buyer orchestrator agent."""
-        logger.info(f"Cancelling request for session {session_id}, task {task_id}")
-        # Implementation for cancelling requests
-        pass
-    async def execute(self, request_context: RequestContext, task_updater: TaskUpdater) -> None:
-        """Implements the abstract execute method."""
-        await self.execute_request(request_context, task_updater)
+    Args:
+        part: The A2A Part to convert
 
-    async def cancel(self, session_id: str, task_id: str) -> None:
-        """Implements the abstract cancel method."""
-        await self.cancel_request(session_id, task_id)
+    Returns:
+        The equivalent Google Gen AI Part
+
+    Raises:
+        ValueError: If the part type is not supported
+    """
+    part = part.root
+    if isinstance(part, TextPart):
+        return types.Part(text=part.text)
+    if isinstance(part, FilePart):
+        if isinstance(part.file, FileWithUri):
+            return types.Part(
+                file_data=types.FileData(
+                    file_uri=part.file.uri, mime_type=part.file.mime_type
+                )
+            )
+        if isinstance(part.file, FileWithBytes):
+            return types.Part(
+                inline_data=types.Blob(
+                    data=part.file.bytes, mime_type=part.file.mime_type
+                )
+            )
+        raise ValueError(f'Unsupported file type: {type(part.file)}')
+    raise ValueError(f'Unsupported part type: {type(part)}')
+
+
+def convert_genai_part_to_a2a(part: types.Part) -> Part:
+    """Convert a single Google Gen AI Part type into an A2A Part type.
+
+    Args:
+        part: The Google Gen AI Part to convert
+
+    Returns:
+        The equivalent A2A Part
+
+    Raises:
+        ValueError: If the part type is not supported
+    """
+    if part.text:
+        return TextPart(text=part.text)
+    if part.file_data:
+        return FilePart(
+            file=FileWithUri(
+                uri=part.file_data.file_uri,
+                mime_type=part.file_data.mime_type,
+            )
+        )
+    if part.inline_data:
+        return Part(
+            root=FilePart(
+                file=FileWithBytes(
+                    bytes=part.inline_data.data,
+                    mime_type=part.inline_data.mime_type,
+                )
+            )
+        )
+    raise ValueError(f'Unsupported part type: {part}')

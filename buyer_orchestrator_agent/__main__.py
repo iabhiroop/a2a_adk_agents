@@ -110,21 +110,85 @@ async def run_gradio_interface(host: str, port: int, runner: Runner, session_ser
     )
     print('ADK session created successfully.')
 
-    # Create a wrapper function that includes the runner
-    async def chat_wrapper(message: str, history: list[gr.ChatMessage]) -> AsyncIterator[gr.ChatMessage]:
-        async for response in get_response_from_agent(message, history, runner):
-            yield response
+    # Predefined prompt for buyer workflow
+    BUYER_WORKFLOW_PROMPT = "Analyze inventory levels and validate purchase requirements. Create PO documents as required and send to respective supplier email."
+
+    async def trigger_buyer_workflow():
+        """Trigger the buyer workflow and return the response."""
+        try:
+            event_iterator: AsyncIterator[Event] = runner.run_async(
+                user_id=USER_ID,
+                session_id=SESSION_ID,
+                new_message=types.Content(
+                    role='user', parts=[types.Part(text=BUYER_WORKFLOW_PROMPT)]
+                ),
+            )
+
+            log_messages = []
+            async for event in event_iterator:
+                if event.content and event.content.parts:
+                    for part in event.content.parts:
+                        if part.function_call:
+                            formatted_call = f'🛠️ **Tool Call: {part.function_call.name}**\n```python\n{pformat(part.function_call.model_dump(exclude_none=True), indent=2, width=80)}\n```'
+                            log_messages.append(formatted_call)
+                        elif part.function_response:
+                            response_content = part.function_response.response
+                            if (
+                                isinstance(response_content, dict)
+                                and 'response' in response_content
+                            ):
+                                formatted_response_data = response_content['response']
+                            else:
+                                formatted_response_data = response_content
+                            formatted_response = f'⚡ **Tool Response from {part.function_response.name}**\n```json\n{pformat(formatted_response_data, indent=2, width=80)}\n```'
+                            log_messages.append(formatted_response)
+                            
+                if event.is_final_response():
+                    final_response_text = ''
+                    if event.content and event.content.parts:
+                        final_response_text = ''.join(
+                            [p.text for p in event.content.parts if p.text]
+                        )
+                    elif event.actions and event.actions.escalate:
+                        final_response_text = f'Agent escalated: {event.error_message or "No specific message."}'
+                    if final_response_text:
+                        log_messages.append(f'✅ **Final Response:**\n{final_response_text}')
+                    break
+                    
+            return '\n\n'.join(log_messages) if log_messages else "No response received from agent."
+            
+        except Exception as e:
+            error_msg = f'❌ **Error:** {e}'
+            print(f'Error in trigger_buyer_workflow: {e}')
+            traceback.print_exc()
+            return error_msg
 
     with gr.Blocks(
         theme=gr.themes.Ocean(), title='Buyer Orchestrator Agent'
     ) as demo:
         gr.Markdown("# 🛒 Buyer Orchestrator Agent")
         gr.Markdown("This agent orchestrates and coordinates the workflow between buyer agents including inventory management, validation, and purchase order processing.")
+        gr.Markdown("---")
+        gr.Markdown("### Workflow: Analyze inventory → Validate requirements → Create PO documents → Send to suppliers")
         
-        gr.ChatInterface(
-            chat_wrapper,
-            title='Buyer Orchestrator Agent',
-            description='Ask me to execute buyer workflows, check inventory, create purchase orders, or coordinate purchasing processes.',
+        with gr.Row():
+            trigger_btn = gr.Button(
+                "🚀 Execute Buyer Workflow", 
+                variant="primary", 
+                size="lg"
+            )
+        
+        with gr.Row():
+            output_display = gr.Markdown(
+                value="Click the button above to execute the buyer workflow. Logs and responses will appear here.",
+                label="Workflow Logs & Output"
+            )
+        
+        # Button click handler
+        trigger_btn.click(
+            fn=trigger_buyer_workflow,
+            inputs=[],
+            outputs=[output_display]
         )
 
     print(f'Launching Gradio interface on {host}:{port}...')

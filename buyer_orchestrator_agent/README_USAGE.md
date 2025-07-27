@@ -40,10 +40,11 @@ This starts a REST API server that you can interact with using HTTP requests.
 python __main__.py --interface gradio --host localhost --port 8083
 ```
 
-This launches a web-based chat interface accessible at `http://localhost:8083`. You can:
-- Chat with the agent in a user-friendly web interface
-- See tool calls and responses formatted nicely
-- View the conversation history
+This launches a web-based interface accessible at `http://localhost:8083`. The interface features:
+- A single button to execute the buyer workflow: "Analyze inventory levels and validate purchase requirements. Create PO documents as required and send to respective supplier email."
+- Real-time display of tool calls, responses, and final results
+- Clean, formatted output showing the entire workflow execution process
+- No text input required - just click the button to trigger the predefined workflow
 
 ### 3. Text Client
 
@@ -91,8 +92,10 @@ asyncio.run(example())
 
 ## Example Commands
 
-Here are some example commands you can try with the agent:
+The Gradio interface automatically executes the buyer workflow with this command:
+- "Analyze inventory levels and validate purchase requirements. Create PO documents as required and send to respective supplier email."
 
+For the text client and programmatic usage, you can try these commands:
 - "Execute buyer workflow for product XYZ"
 - "Check inventory status"
 - "Create a purchase order for 100 units of ABC123"

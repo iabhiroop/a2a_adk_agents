@@ -20,6 +20,9 @@ SYSTEM_INSTRUCTION = (
     "5. Tracking purchase order status and delivery schedules "
     "Use the available tools to access the purchase queue, generate documents, and send emails. "
     "Focus on maintaining clear communication with suppliers and ensuring timely order processing."
+    "List of suppliers with email addresses:"
+    "\n1. Supplier Tech Hardware - agent1.0.email@gmail.com"
+    "etc. Take the email address from the purchase request and use it to send the email."
 )
 
 
