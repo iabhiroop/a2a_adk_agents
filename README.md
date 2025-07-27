@@ -1,168 +1,258 @@
-# ADK Format Purchase Order Agents
+# Purchase Order Agent A2A ADK Framework
 
-This directory contains 7 specialized ADK (Agent Development Kit) agents converted from the original CrewAI implementation. These agents work together to handle the complete purchase order workflow from inventory management to supplier communications.
+An Agent-to-Agent (A2A) ADK (Agent Development Kit) based automation system for supply chain ordering and documentation processes using a custom MCP (Model Context Protocol) server. This implementation transforms traditionally manual supply chain processes through intelligent multi-agent coordination.
 
-## Agents Overview
+## 🚀 Overview
 
-### 0. Buyer Orchestrator Agent (Port: 8000) 🎯
-- **Purpose**: Orchestrates and coordinates the workflow between the three buyer agents
-- **Tools**: MCP tools + Direct HTTP communication with buyer agents
-- **Capabilities**: Workflow coordination, agent communication, process monitoring
-- **Workflow**: Manages the sequential execution: Inventory → Validation → Purchase Orders
+This repository demonstrates how A2A ADK agents can revolutionize supply chain automation by replacing manual inventory analysis, purchase validation, and order documentation with intelligent agent coordination through MCP tools.
 
-### 6. Supplier Orchestrator Agent (Port: 8006) 🏭
-- **Purpose**: Orchestrates and coordinates the workflow between the two supplier agents
-- **Tools**: MCP tools + Direct HTTP communication with supplier agents
-- **Capabilities**: Order processing coordination, production management, email monitoring
-- **Workflows**: Standard supplier workflow + Order monitoring workflow
+**Current Implementation**: 7 specialized ADK agents working through Agent-to-Agent communication patterns:
 
-### 1. Inventory Management Agent (Port: 8001)
-- **Purpose**: Monitors stock levels and handles demand forecasting
-- **Tools**: RestockInventoryTool, ReportFileTool
-- **Capabilities**: Stock monitoring, demand analysis, inventory reporting
+- **Buyer Agent Cluster** (3 agents + 1 orchestrator):  
+  Automates purchasing workflows through coordinated agent interactions, eliminating manual spreadsheet analysis and streamlining purchase order generation via MCP tool integration.
 
-### 2. Purchase Validation Agent (Port: 8002)  
-- **Purpose**: Validates purchase requests and manages the approval process
-- **Tools**: FinancialDataTool, PurchaseQueueTool
-- **Capabilities**: Budget validation, cost-benefit analysis, compliance checking
+- **Supplier Agent Cluster** (2 agents + 1 orchestrator):  
+  Processes incoming orders and manages production through intelligent agent coordination, leveraging MCP tools for email monitoring and document processing.
 
-### 3. Purchase Order Agent (Port: 8003)
-- **Purpose**: Generates purchase orders and manages supplier communications
-- **Tools**: PurchaseQueueTool, DocumentGeneratorTool, PoEmailGeneratorTool
-- **Capabilities**: Document generation, email communication, order tracking
+**A2A Architecture Benefits**: 
+- Direct agent-to-agent communication reduces coordination overhead
+- MCP server provides standardized tool access across all agents
+- Modular ADK design enables seamless scaling and agent specialization
+- Event-driven workflows through HTTP-based agent communication
 
-### 4. Order Intelligence Agent (Port: 8004)
-- **Purpose**: Processes incoming orders and extracts critical information
-- **Tools**: EmailMonitoringTool, DocumentParserTool
-- **Capabilities**: Email monitoring, document parsing, data extraction
+## 🏗️ A2A ADK Architecture
 
-### 5. Production Queue Management Agent (Port: 8005)
-- **Purpose**: Manages production schedules and order processing workflows
-- **Tools**: PORecordTool, EmailResponseGeneratorTool
-- **Capabilities**: Production planning, order recording, status communication
+### ADK Agent Structure
+Each agent follows the ADK pattern:
+- **agent.py**: Agent configuration and system instructions
+- **agent_executor.py**: Request processing and MCP tool integration
+- **__main__.py**: HTTP server for A2A communication
+- **__init__.py**: Agent metadata and documentation
 
-## Environment Configuration
+### Agent Communication Flow
+```
+Buyer Orchestrator
+    ↓ HTTP Requests
+├── Inventory Agent ←→ MCP Tools
+├── Validation Agent ←→ MCP Tools  
+└── Purchase Order Agent ←→ MCP Tools
 
-All agents use a shared `.env` file located in this directory with the following configuration:
-
-```properties
-# MCP Server Configuration
-MCP_SERVER_URL=http://localhost:8080/mcp
-
-# Model Configuration  
-MODEL=gemini-2.5-flash
-GEMINI_API_KEY=your_api_key_here
-
-# Email Configuration
-EMAIL=agent1.0.email@gmail.com
-PASSWORD=your_app_password
-SUPEMAIL=test.mail.iitm.indusai@gmail.com
-SUPPASSWORD=your_supplier_app_password
+Supplier Orchestrator
+    ↓ HTTP Requests
+├── Order Intelligence Agent ←→ MCP Tools
+└── Production Queue Agent ←→ MCP Tools
 ```
 
-## Running the Agents
+### MCP Tool Integration
+All agents access specialized tools through the MCP server:
+- **RestockInventoryTool**: Inventory monitoring and analysis
+- **FinancialDataTool**: Budget validation and cost analysis
+- **DocumentGeneratorTool**: Purchase order and report generation
+- **EmailMonitoringTool**: Automated email processing
+- **PORecordTool**: Order tracking and production management
 
-### Option 1: Run Individual Agents
-Each agent can be run independently on its designated port:
+## 🎯 ADK Agents Overview
 
+### Orchestrator Agents
+
+#### 0. Buyer Orchestrator Agent 🎯
+- **Purpose**: Coordinates workflow between buyer agents via A2A communication
+- **Tools**: MCP tools + Direct HTTP communication with buyer agents
+- **A2A Pattern**: Sequential orchestration (Inventory → Validation → Purchase Orders)
+- **MCP Integration**: Workflow coordination through standardized tool access
+
+#### 6. Supplier Orchestrator Agent 🏭
+- **Purpose**: Manages supplier agent workflows through A2A coordination
+- **Tools**: MCP tools + Direct HTTP communication with supplier agents
+- **A2A Pattern**: Parallel processing with order monitoring workflows
+- **MCP Integration**: Production coordination and email monitoring
+
+### Specialized Worker Agents
+
+#### 1. Inventory Management Agent 📦
+- **ADK Role**: Inventory analysis and demand forecasting
+- **MCP Tools**: RestockInventoryTool, ReportFileTool
+- **A2A Interface**: Responds to orchestrator requests with inventory insights
+
+#### 2. Purchase Validation Agent ✅
+- **ADK Role**: Budget validation and compliance checking
+- **MCP Tools**: FinancialDataTool, PurchaseQueueTool
+- **A2A Interface**: Validates purchase requests from orchestrator
+
+#### 3. Purchase Order Agent 📄
+- **ADK Role**: Document generation and supplier communication
+- **MCP Tools**: PurchaseQueueTool, DocumentGeneratorTool, PoEmailGeneratorTool
+- **A2A Interface**: Creates and distributes purchase orders
+
+#### 4. Order Intelligence Agent 🧠
+- **ADK Role**: Email processing and order extraction
+- **MCP Tools**: EmailMonitoringTool, DocumentParserTool
+- **A2A Interface**: Processes incoming orders for production queue
+
+#### 5. Production Queue Management Agent 🏭
+- **ADK Role**: Production scheduling and order tracking
+- **MCP Tools**: PORecordTool, EmailResponseGeneratorTool
+- **A2A Interface**: Manages production workflows and notifications
+
+## 🛠️ Technology Stack
+
+### A2A ADK Framework
+- **ADK Pattern**: Agent Development Kit with standardized structure
+- **MCP Protocol**: Model Context Protocol for tool standardization
+- **HTTP Communication**: RESTful A2A agent communication
+- **JSON Messaging**: Standardized agent-to-agent message format
+
+### AI & Integration
+- **Gemini 2.5 Flash**: LLM for agent intelligence
+- **Custom MCP Server**: Centralized tool access and coordination
+- **Email Integration**: IMAP/SMTP through MCP tools
+- **Document Processing**: OCR and parsing via MCP tools
+
+### Infrastructure
+- **Python 3.8+**: Agent runtime environment
+- **HTTP Servers**: Individual agent endpoints
+- **MCP Server**: Tool coordination hub
+- **Environment Configuration**: Shared .env for all agents
+
+## 🚀 Quick Start - A2A Deployment
+
+### Prerequisites
+- Python 3.8 or higher
+- Custom MCP Server running on port 8080
+- Gmail accounts for email integration
+- Google API key for Gemini integration
+
+### MCP Server Setup
+1. **Start the MCP Server:**
+   ```bash
+   # Ensure your custom MCP server is running
+   # Default: http://localhost:8099/mcp
+   ```
+
+2. **Environment Configuration:**
+   Create `.env` file in the root directory:
+   ```env
+   # MCP Server Configuration
+   MCP_SERVER_URL=http://localhost:8099/mcp
+
+   # Model Configuration  
+   MODEL=gemini-2.5-flash
+   GEMINI_API_KEY=your_api_key_here
+
+   # Email Configuration
+   EMAIL=buyer_email
+   PASSWORD=your_app_password
+   SUPEMAIL=supplier_email
+   SUPPASSWORD=your_supplier_app_password
+   ```
+
+### A2A Agent Deployment
+
+#### Buyer Workflow Only
 ```bash
-# Buyer Orchestrator Agent (runs on port 8000)
+# Start buyer agents + orchestrator
+start_buyer_workflow.bat      # Windows
+start_buyer_workflow.ps1      # PowerShell
+```
+
+#### Individual Agent Deployment
+```bash
+# Buyer Orchestrator
 cd buyer_orchestrator_agent
 python -m __main__ --host localhost --port 8000
 
-# Inventory Management Agent
+# Individual agents (ports 8001-8005)
 cd inventory_management_agent
 python -m __main__ --host localhost --port 8001
-
-# Purchase Validation Agent  
-cd purchase_validation_agent
-python -m __main__ --host localhost --port 8002
-
-# Purchase Order Agent
-cd purchase_order_agent
-python -m __main__ --host localhost --port 8003
-
-# Order Intelligence Agent
-cd order_intelligence_agent
-python -m __main__ --host localhost --port 8004
-
-# Production Queue Management Agent
-cd production_queue_management_agent
-python -m __main__ --host localhost --port 8005
-
-# Supplier Orchestrator Agent
-cd supplier_orchestrator_agent
-python -m __main__ --host localhost --port 8006
+# ... repeat for other agents
 ```
 
-### Option 2: Use the Buyer Orchestrator (Recommended)
-For buyer workflow coordination, run the orchestrator agent along with the three buyer agents:
+### Testing A2A Communication
 
-1. Start the three buyer agents (ports 8001, 8002, 8003)
-2. Start the orchestrator agent (port 8000)
-3. Send workflow requests to the orchestrator agent
-
-Example orchestrator usage:
-```
-"Execute the complete buyer workflow for restocking office supplies"
-"Orchestrate buyer process for low inventory items"
-"Coordinate buyers for quarterly procurement"
-```
-
-### Option 3: Use the Supplier Orchestrator
-For supplier workflow coordination, run the supplier orchestrator with the two supplier agents:
-
-1. Start the two supplier agents (ports 8004, 8005)
-2. Start the supplier orchestrator agent (port 8006)
-3. Send workflow requests to the supplier orchestrator
-
-Example supplier orchestrator usage:
-```
-"Execute supplier workflow for incoming purchase orders"
-"Monitor incoming orders and process them"
-"Orchestrate production queue management"
-"Watch for new emails continuously"
-```
-
-### Option 4: Complete System (Both Orchestrators)
-For full end-to-end workflow, run both orchestrators with all agents:
-
-1. Start all individual agents (ports 8001-8005)
-2. Start buyer orchestrator (port 8000)
-3. Start supplier orchestrator (port 8006)
-4. Use orchestrators to coordinate buyer and supplier workflows
-
-## Quick Start Scripts
-
-### Automated Startup Scripts
-Use these scripts for easy system startup:
-
+#### Orchestrator Usage Examples
 ```bash
-# Start complete system (all agents + both orchestrators)
-start_complete_system.bat         # Windows batch
-start_complete_system.ps1         # PowerShell
+# Buyer workflow coordination
+curl -X POST http://localhost:8000/execute \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Execute complete buyer workflow for office supplies"}'
 
-# Start buyer workflow only
-start_buyer_workflow.bat          # Windows batch  
-start_buyer_workflow.ps1          # PowerShell
-
-# Start supplier workflow only
-start_supplier_workflow.bat       # Windows batch
-start_supplier_workflow.ps1       # PowerShell
+# Supplier workflow coordination  
+curl -X POST http://localhost:8006/execute \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Process incoming purchase orders"}'
 ```
 
-These scripts will automatically start the agents in the correct order with appropriate delays.
+## 📁 ADK Project Structure
 
-## MCP Server Dependency
+```
+a2a_adk_agents/
+├── .env                        # Shared environment configuration
+├── README.md                   # This file
+├── start_*.bat/ps1            # Automated startup scripts
+├── buyer_orchestrator_agent/   # Buyer workflow coordinator
+│   ├── agent.py               # ADK agent configuration
+│   ├── agent_executor.py      # MCP tool integration
+│   ├── __main__.py            # HTTP server for A2A
+│   └── __init__.py            # Agent metadata
+├── inventory_management_agent/ # Stock monitoring ADK agent
+├── purchase_validation_agent/  # Budget validation ADK agent
+├── purchase_order_agent/      # Document generation ADK agent
+├── order_intelligence_agent/  # Email processing ADK agent
+├── production_queue_management_agent/ # Production ADK agent
+└── supplier_orchestrator_agent/ # Supplier workflow coordinator
+```
 
-All agents depend on a running MCP (Model Context Protocol) server that provides the necessary tools. Make sure your MCP server is running on the configured URL before starting any agents.
+## 🔧 A2A Configuration
 
-## Architecture
+### Agent Communication Patterns
+- **Sequential Flow**: Orchestrator → Agent1 → Agent2 → Agent3
+- **Parallel Processing**: Multiple agents handling concurrent requests
+- **Event-Driven**: Agents responding to HTTP triggers from orchestrators
 
-These agents follow the ADK pattern with:
-- **agent.py**: Defines the agent configuration and system instructions
-- **agent_executor.py**: Handles request processing and execution
-- **__main__.py**: Server startup and configuration
-- **__init__.py**: Module documentation and metadata
+### MCP Tool Configuration
+All tools are accessed through the centralized MCP server, ensuring:
+- **Consistent Tool Access**: Standardized interfaces across agents
+- **Resource Management**: Centralized tool lifecycle management
+- **Cross-Agent Coordination**: Shared tool state and coordination
 
-Each agent connects to the MCP server to access specialized tools for their respective functions in the purchase order workflow.
+## 📊 A2A Workflow Examples
+
+### Buyer Workflow
+1. **Orchestrator Request**: "Execute buyer workflow"
+2. **A2A Coordination**: Orchestrator → Inventory Agent (analysis)
+3. **Sequential Processing**: Results → Validation Agent (approval)
+4. **Final Step**: Approved requests → Purchase Order Agent (generation)
+
+### Supplier Workflow  
+1. **Orchestrator Request**: "Process incoming orders"
+2. **A2A Coordination**: Orchestrator → Order Intelligence (email parsing)
+3. **Production Flow**: Parsed orders → Production Queue Agent (scheduling)
+4. **Notification**: Status updates via email automation
+
+## ⚠️ A2A Considerations
+
+### Agent Communication
+- **Network Latency**: HTTP-based A2A communication introduces network overhead
+- **Error Handling**: Robust retry mechanisms for failed agent communications
+- **Load Balancing**: Consider agent scaling for high-throughput scenarios
+
+### MCP Server Dependency
+- **Single Point of Failure**: MCP server availability affects all agents
+- **Tool Versioning**: Ensure MCP tool compatibility across agent updates
+- **Performance**: MCP server performance impacts overall system responsiveness
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Follow ADK patterns for new agents
+3. Ensure MCP tool integration compliance
+4. Test A2A communication workflows
+5. Submit pull request with agent documentation
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
+
+*This A2A ADK implementation demonstrates the power of agent coordination through standardized MCP tools and HTTP-based communication patterns.*
